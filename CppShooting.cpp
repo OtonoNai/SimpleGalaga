@@ -5,6 +5,9 @@
 
 using namespace std;
 
+random_device rd;
+mt19937_64 gen(rd());
+
 const int max_hp = 5;
 int cur_hp = max_hp;
 int score = 0;
@@ -98,8 +101,7 @@ void AddMob() {
 		mob_genstop++;
 		return;
 	}
-	random_device rd;
-	mt19937_64 gen(rd());
+	
 	for (int i = 0; i < 5; i++) {
 		if (!(mob_flag & (1 << i))) {
 			uniform_int_distribution<int> distrib(1, world_x - 2);
