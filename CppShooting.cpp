@@ -19,7 +19,7 @@ char world[world_y][world_x];
 const char mob_text = 'X';
 int mob_flag = 0;
 int mob[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} };
-int mob_speed[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} }; //[speed][stop]
+int mob_speed[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} }; //{speed, stop}
 int mob_genspeed = 0;
 int mob_genstop = 0;
 
@@ -92,13 +92,15 @@ void AddMob() {
 	for (int i = 0; i < 5; i++) {
 		if (!(mob_flag & (1 << i))) {
 			uniform_int_distribution<int> distrib(1, world_x - 2);
-			uniform_int_distribution<int> gentime(50, 60);
-			uniform_int_distribution<int> speed(30, 50);
+			uniform_int_distribution<int> gentime(30, 120);
+			uniform_int_distribution<int> speed(30, 120);
+			MoveCursor(0, 25);
 			mob_flag |= (1 << i);
 			mob[i][0] = distrib(gen);
 			mob[i][1] = 0;
 			mob_speed[i][0] = speed(gen);
 			mob_genspeed = gentime(gen);
+			mob_genstop = 0;
 			return;
 		}
 	}
