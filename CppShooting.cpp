@@ -22,13 +22,6 @@ int mob[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} };
 int mob_speed[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} }; //[speed][stop]
 int mob_genspeed = 0;
 int mob_genstop = 0;
-enum mob_active {
-	mob1 = 1 << 0,
-	mob2 = 1 << 1,
-	mob3 = 1 << 2,
-	mob4 = 1 << 3,
-	mob5 = 1 << 4,
-};
 
 const char player_text = 'A';
 int player_x = world_x / 2;
@@ -39,12 +32,6 @@ int bullet_flag = 0;
 int bullet[3][2] = { {0,0}, {0,0}, {0,0} };
 const int bullet_speed = 3;
 int bullet_stop = 0;
-enum bullet_active
-{
-	bullet1 = 1 << 0,
-	bullet2 = 1 << 1,
-	bullet3 = 1 << 2,
-};
 
 void HideCursor()
 {
@@ -137,7 +124,7 @@ void MobController() {
 			mob_flag &= ~(1 << i);
 		}
 
-		if (mob[i][1] >= 20) {
+		if (mob[i][1] >= world_y) {
 			mob_flag &= ~(1 << i);
 		}
 	}
