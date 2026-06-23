@@ -8,30 +8,98 @@ using namespace std;
 random_device rd;
 mt19937_64 gen(rd());
 
-const int max_hp = 5;
-int cur_hp = max_hp;
-int score = 0;
+struct GameWorld {
+	static constexpr int SIZE_X = 40;
+	static constexpr int SIZE_Y = 20;
+	char text[GameWorld::SIZE_Y][GameWorld::SIZE_X];
 
-const int world_x = 40;
-const int world_y = 20;
-char world[world_y][world_x];
+	static constexpr int MAX_MOB = 5;
+	static constexpr int MAX_BULLET = 3;
+};
 
-const char mob_text = 'X';
-int mob_flag = 0;
-int mob[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} };
-int mob_speed[5][2] = { {0,0},{0,0}, {0,0}, {0,0}, {0,0} }; //{speed, stop}
-int mob_genspeed = 0;
-int mob_genstop = 0;
+struct Player {
+	static constexpr char TEXT = 'A';
+	static constexpr int Y_POS = GameWorld::SIZE_Y - 2;
+	const int max_hp = 5;
 
-const char player_text = 'A';
-int player_x = world_x / 2;
-int player_y = world_y - 2;
+	int cur_hp = max_hp;
+	int score = 0;
+	int x_pos = GameWorld::SIZE_X / 2;
+	int y_pos = GameWorld::SIZE_Y - 2;
+};
 
-const char bullet_text = '^';
-int bullet_flag = 0;
-int bullet[3][2] = { {0,0}, {0,0}, {0,0} };
-const int bullet_speed = 3;
-int bullet_stop = 0;
+struct Mob {
+	static constexpr char TEXT = 'X';
+
+	bool is_active = false;
+	int x_pos = 0;
+	int y_pos = 0;
+	int move_interval = 0;
+	int elapsed_frame_move = 0;
+	int spawn_interval = 0;
+	int elapsed_frame_spawn = 0;
+
+
+	Mob() {}
+
+	void Move() {
+		if (!is_active) {
+			return;
+		}
+		if (elapsed_frame_move++ < move_interval) {
+			return;
+		}
+
+		y_pos++;
+		elapsed_frame_move = 0;
+	}
+
+	void Deactivate() {
+		is_active = false;
+	}
+};
+
+struct Bullet {
+	static constexpr char TEXT = '^';
+
+	bool is_active = false;
+	int x_pos = 0;
+	int y_pos = 0;
+	int move_interval = 5;
+	int elapsed_frame = 0;
+
+	Bullet() {}
+
+	void Activate(int x, int y) {
+		is_active = true;
+
+		x_pos = x;
+		y_pos = y;
+
+		elapsed_frame = 0;
+	}
+
+	void Deactivate() {
+		is_active = false;
+	}
+
+	void Move() {
+		if (!is_active) {
+			return;
+		}
+		if (elapsed_frame++ < move_interval) {
+			return;
+		}
+
+		y_pos--;
+		elapsed_frame = 0;
+	}
+};
+
+GameWorld world;
+Player player;
+Mob mobs[GameWorld::MAX_MOB];
+Bullet bullets[GameWorld::MAX_BULLET];
 
 void HideCursor()
 {
@@ -54,95 +122,62 @@ void MoveCursor(int x, int y)
 	);
 }
 
-void AddBullet() {
-	for (int i = 0; i < 3; i++) {
-		if (!(bullet_flag & (1 << i))) {
-			bullet_flag |= (1 << i);
-
-			bullet[i][0] = player_x;
-			bullet[i][1] = player_y - 1;
-
-			break;
+void GenerateMobs() {
+	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		if (mobs[i].is_active) {
+			continue;
 		}
+		if (mobs[i].elapsed_frame_spawn++ < mobs[i].spawn_interval) {
+			return;
+		}
+		uniform_int_distribution<int> distrib(1, GameWorld::SIZE_X - 2);
+		uniform_int_distribution<int> respawn(10, 40);
+		uniform_int_distribution<int> moveInterval(30, 120);
+		mobs[i].is_active = true;
+		mobs[i].x_pos = distrib(gen);
+		mobs[i].y_pos = 1;
+		mobs[i].move_interval = moveInterval(gen);
+		mobs[i].spawn_interval = respawn(gen);
+		mobs[i].elapsed_frame_spawn = 0;
 	}
 }
 
-void BulletControl() {
-	if (bullet_stop < bullet_speed) {
-		bullet_stop++;
-		return;
-	}
-	for (int i = 0; i < 3; i++) {
-		if (bullet_flag & (1 << i)) {
-			bullet[i][1]--;
+void FindDeactivatedBullet() {
+	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
+		if (bullets[i].is_active) {
+			continue;
 		}
-		if (bullet[i][1] == 0) {
-			bullet_flag &= ~(1 << i);
-		}
-	}
-	bullet_stop = 0;
-}
-
-void AddMob() {
-	if (mob_genstop <= mob_genspeed) {
-		mob_genstop++;
-		return;
-	}
-	
-	for (int i = 0; i < 5; i++) {
-		if (!(mob_flag & (1 << i))) {
-			uniform_int_distribution<int> distrib(1, world_x - 2);
-			uniform_int_distribution<int> gentime(30, 120);
-			uniform_int_distribution<int> speed(30, 120);
-			MoveCursor(0, 25);
-			mob_flag |= (1 << i);
-			mob[i][0] = distrib(gen);
-			mob[i][1] = 0;
-			mob_speed[i][0] = speed(gen);
-			mob_genspeed = gentime(gen);
-			mob_genstop = 0;
+		else {
+			bullets[i].Activate(player.x_pos, player.y_pos - 1);
 			return;
 		}
 	}
 }
 
-void MobController() {
-	for (int i = 0; i < 5; i++) {
-		if (!(mob_flag & (1 << i))) {
-			continue;
-		}
-
-		if (mob_speed[i][1] <= mob_speed[i][0]) {
-			mob_speed[i][1]++;
-			continue;
-		}
-		else {
-			mob[i][1]++;
-			mob_speed[i][1] = 0;
-		}
-
-		if ((mob[i][1] >= player_y) && (mob[i][0] == player_x)) {
-			cur_hp--;
-			mob_flag &= ~(1 << i);
-		}
-
-		if (mob[i][1] >= world_y) {
-			mob_flag &= ~(1 << i);
-		}
-	}
-}
-
 void Collision() {
-	for (int i = 0; i < 5; i++) {
-		for (int j = 0; j < 3; j++) {
-			if ((bullet_flag & 1 << j) && (bullet[j][1] == mob[i][1]) && (bullet[j][0] == mob[i][0])) {
-				mob_flag &= ~(1 << i);
-				bullet_flag &= ~(1 << j);
-				score++;
-				break;
+	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		for (int j = 0; j < GameWorld::MAX_BULLET; j++) {
+			if (bullets[j].is_active && mobs[i].is_active) {
+				if (bullets[j].x_pos == mobs[i].x_pos && bullets[j].y_pos == mobs[i].y_pos) {
+					mobs[i].is_active = false;
+					bullets[j].is_active = false;
+					player.score++;
+				}
+			}
+			else if (bullets[j].is_active) {
+				if (bullets[j].y_pos == 0) {
+					bullets[j].Deactivate();
+				}
+			}
+			else if (mobs[i].is_active) {
+				if (mobs[i].y_pos == GameWorld::SIZE_Y - 1) {
+					player.cur_hp--;
+					mobs[i].Deactivate();
+				}
 			}
 		}
 	}
+
 }
 
 void Input()
@@ -154,22 +189,22 @@ void Input()
 		switch (key)
 		{
 		case 'a':
-			if (player_x == 1) {
+			if (player.x_pos == 1) {
 				return;
 			}
-			player_x--;
+			player.x_pos--;
 
 			break;
 
 		case 'd':
-			if (player_x == world_x - 2) {
+			if (player.x_pos == GameWorld::SIZE_X - 2) {
 				return;
 			}
-			player_x++;
+			player.x_pos++;
 
 			break;
 		case 'w':
-			AddBullet();
+			FindDeactivatedBullet();
 			break;
 		}
 	}
@@ -177,48 +212,47 @@ void Input()
 
 void DrawWorld() {
 	MoveCursor(0, 0);
-	for (int y = 0; y < world_y; y++) {
-		for (int x = 0; x < world_x; x++) {
-			world[y][x] = ' ';
-			if ((y == 0 || y == world_y - 1) || (x == 0 || x == world_x - 1)) {
-				world[y][x] = '*';
+	for (int y = 0; y < GameWorld::SIZE_Y; y++) {
+		for (int x = 0; x < GameWorld::SIZE_X; x++) {
+			world.text[y][x] = ' ';
+			if ((y == 0 || y == GameWorld::SIZE_Y - 1) || (x == 0 || x == GameWorld::SIZE_X - 1)) {
+				world.text[y][x] = '*';
 			}
-			cout << world[y][x];
+			cout << world.text[y][x];
 		}
 		cout << endl;
 	}
-	MoveCursor(player_x, player_y);
-	cout << player_text;
-	for (int f = 0; f < 3; f++) {
-		if (bullet_flag & (1 << f)) {
-			MoveCursor(bullet[f][0], bullet[f][1]);
-			cout << bullet_text;
+	MoveCursor(player.x_pos, player.y_pos);
+	cout << player.TEXT;
+	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
+		if (bullets[i].is_active) {
+			MoveCursor(bullets[i].x_pos, bullets[i].y_pos);
+			cout << Bullet::TEXT;
 		}
 	}
-	for (int m = 0; m < 5; m++) {
-		if (mob_flag & (1 << m)) {
-			MoveCursor(mob[m][0], mob[m][1]);
-			cout << mob_text;
+	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		if (mobs[i].is_active) {
+			MoveCursor(mobs[i].x_pos, mobs[i].y_pos);
+			cout << Mob::TEXT;
 		}
 	}
 	MoveCursor(0, 21);
-	cout << "Score : " << score << endl;
-	cout << "HP : " << cur_hp << endl;
-	//cout << bullet_flag;
+	cout << "Score : " << player.score << endl;
+	cout << "HP : " << player.cur_hp << endl;
 }
 
 bool EndGame() {
-	if (cur_hp > 0) {
+	if (player.cur_hp > 0) {
 		return false;
 	}
 	MoveCursor(0, 0);
-	for (int y = 0; y < world_y; y++) {
-		for (int x = 0; x < world_x; x++) {
-			world[y][x] = ' ';
-			if ((y == 0 || y == world_y - 1) || (x == 0 || x == world_x - 1)) {
-				world[y][x] = '*';
+	for (int y = 0; y < GameWorld::SIZE_Y; y++) {
+		for (int x = 0; x < GameWorld::SIZE_X; x++) {
+			world.text[y][x] = ' ';
+			if ((y == 0 || y == GameWorld::SIZE_Y - 1) || (x == 0 || x == GameWorld::SIZE_X - 1)) {
+				world.text[y][x] = '*';
 			}
-			cout << world[y][x];
+			cout << world.text[y][x];
 		}
 		cout << endl;
 	}
@@ -228,14 +262,22 @@ bool EndGame() {
 	return true;
 }
 
+void Update() {
+	GenerateMobs();
+	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
+		bullets[i].Move();
+	}
+	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		mobs[i].Move();
+	}
+}
+
 int main()
 {
 	HideCursor();
 	while (true) {
-		AddMob();
 		Input();
-		MobController();
-		BulletControl();
+		Update();
 		Collision();
 		DrawWorld();
 		if (EndGame()) {
@@ -243,5 +285,4 @@ int main()
 		}
 		Sleep(5);
 	}
-
 }
