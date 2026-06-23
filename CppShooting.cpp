@@ -39,11 +39,14 @@ struct Mob {
 	int spawn_interval = 0;
 	int elapsed_frame_spawn = 0;
 
-	Mob() {}
+	Mob() {
+		uniform_int_distribution<int> respawn(30, 120);
+		spawn_interval = respawn(gen);
+	}
 
 	void Activate() {
 		uniform_int_distribution<int> distrib(1, GameWorld::SIZE_X - 2);
-		uniform_int_distribution<int> respawn(30, 60);
+		uniform_int_distribution<int> respawn(30, 120);
 		uniform_int_distribution<int> moveInterval(10, 60);
 		is_active = true;
 		x_pos = distrib(gen);
