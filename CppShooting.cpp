@@ -39,8 +39,24 @@ struct Mob {
 	int spawn_interval = 0;
 	int elapsed_frame_spawn = 0;
 
-
 	Mob() {}
+
+	void Activate() {
+		uniform_int_distribution<int> distrib(1, GameWorld::SIZE_X - 2);
+		uniform_int_distribution<int> respawn(30, 60);
+		uniform_int_distribution<int> moveInterval(10, 60);
+		is_active = true;
+		x_pos = distrib(gen);
+		y_pos = 1;
+		move_interval = moveInterval(gen);
+		spawn_interval = respawn(gen);
+		elapsed_frame_spawn = 0;
+	}
+
+	void Deactivate() {
+		is_active = false;
+		elapsed_frame_spawn = 0;
+	}
 
 	void Move() {
 		if (!is_active) {
@@ -49,17 +65,22 @@ struct Mob {
 		if (elapsed_frame_move++ < move_interval) {
 			return;
 		}
-		if (y_pos == GameWorld::SIZE_Y - 1) {
-			Deactivate();
-		}
 		
 		y_pos++;
 		elapsed_frame_move = 0;
 	}
 
-	void Deactivate() {
-		is_active = false;
-		elapsed_frame_spawn = 0;
+	bool CheckOutOfBounds() {
+		if (!is_active) {
+			return false;
+		}
+		if (y_pos == GameWorld::SIZE_Y - 1) {
+			Deactivate();
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 };
 
@@ -94,12 +115,22 @@ struct Bullet {
 		if (elapsed_frame++ < move_interval) {
 			return;
 		}
-		if (y_pos == 0) {
-			Deactivate();
-		}
 		
 		y_pos--;
 		elapsed_frame = 0;
+	}
+
+	bool CheckOutOfBounds() {
+		if (!is_active) {
+			return false;
+		}
+		if (y_pos == 0) {
+			Deactivate();
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 };
 
@@ -137,19 +168,11 @@ void GenerateMobs() {
 		if (mobs[i].elapsed_frame_spawn++ < mobs[i].spawn_interval) {
 			continue;
 		}
-		uniform_int_distribution<int> distrib(1, GameWorld::SIZE_X - 2);
-		uniform_int_distribution<int> respawn(30, 60);
-		uniform_int_distribution<int> moveInterval(40, 180);
-		mobs[i].is_active = true;
-		mobs[i].x_pos = distrib(gen);
-		mobs[i].y_pos = 1;
-		mobs[i].move_interval = moveInterval(gen);
-		mobs[i].spawn_interval = respawn(gen);
-		mobs[i].elapsed_frame_spawn = 0;
+		mobs[i].Activate();
 	}
 }
 
-void FindDeactivatedBullet() {
+void SpawnBullet() {
 	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
 		if (bullets[i].is_active) {
 			continue;
@@ -166,12 +189,11 @@ void Collision() {
 		for (int j = 0; j < GameWorld::MAX_BULLET; j++) {
 			if (bullets[j].is_active && mobs[i].is_active) {
 				if (bullets[j].x_pos == mobs[i].x_pos && bullets[j].y_pos == mobs[i].y_pos) {
-					mobs[i].is_active = false;
-					bullets[j].is_active = false;
+					mobs[i].Deactivate();
+					bullets[j].Deactivate();
 					player.score++;
 				}
 			}
-			
 		}
 	}
 
@@ -201,7 +223,7 @@ void Input()
 
 			break;
 		case 'w':
-			FindDeactivatedBullet();
+			SpawnBullet();
 			break;
 		}
 	}
@@ -253,7 +275,7 @@ bool EndGame() {
 		}
 		cout << endl;
 	}
-	MoveCursor(10, 10);
+	MoveCursor(1, 1);
 	cout << "GAME OVER";
 	MoveCursor(0, 20);
 	return true;
@@ -269,6 +291,17 @@ void Update() {
 	}
 }
 
+void LateUpdate() {
+	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
+		bullets[i].CheckOutOfBounds();
+	}
+	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		if (mobs[i].CheckOutOfBounds()) {
+			player.cur_hp--;
+		}
+	}
+}
+
 int main()
 {
 	HideCursor();
@@ -276,6 +309,7 @@ int main()
 		Input();
 		Update();
 		Collision();
+		LateUpdate();
 		DrawWorld();
 		if (EndGame()) {
 			break;
