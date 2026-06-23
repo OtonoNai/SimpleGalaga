@@ -49,13 +49,17 @@ struct Mob {
 		if (elapsed_frame_move++ < move_interval) {
 			return;
 		}
-
+		if (y_pos == GameWorld::SIZE_Y - 1) {
+			Deactivate();
+		}
+		
 		y_pos++;
 		elapsed_frame_move = 0;
 	}
 
 	void Deactivate() {
 		is_active = false;
+		elapsed_frame_spawn = 0;
 	}
 };
 
@@ -90,7 +94,10 @@ struct Bullet {
 		if (elapsed_frame++ < move_interval) {
 			return;
 		}
-
+		if (y_pos == 0) {
+			Deactivate();
+		}
+		
 		y_pos--;
 		elapsed_frame = 0;
 	}
@@ -128,11 +135,11 @@ void GenerateMobs() {
 			continue;
 		}
 		if (mobs[i].elapsed_frame_spawn++ < mobs[i].spawn_interval) {
-			return;
+			continue;
 		}
 		uniform_int_distribution<int> distrib(1, GameWorld::SIZE_X - 2);
-		uniform_int_distribution<int> respawn(10, 40);
-		uniform_int_distribution<int> moveInterval(30, 120);
+		uniform_int_distribution<int> respawn(30, 60);
+		uniform_int_distribution<int> moveInterval(40, 180);
 		mobs[i].is_active = true;
 		mobs[i].x_pos = distrib(gen);
 		mobs[i].y_pos = 1;
@@ -164,17 +171,7 @@ void Collision() {
 					player.score++;
 				}
 			}
-			else if (bullets[j].is_active) {
-				if (bullets[j].y_pos == 0) {
-					bullets[j].Deactivate();
-				}
-			}
-			else if (mobs[i].is_active) {
-				if (mobs[i].y_pos == GameWorld::SIZE_Y - 1) {
-					player.cur_hp--;
-					mobs[i].Deactivate();
-				}
-			}
+			
 		}
 	}
 
