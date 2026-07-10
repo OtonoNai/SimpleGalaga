@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <conio.h>
 #include <random>
+#include <algorithm>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ struct Mob {
 	bool is_active = false;
 	int x_pos = 0;
 	int y_pos = 0;
+	int prev_y_pos = 0;
 	int move_interval = 0;
 	int elapsed_frame_move = 0;
 	int spawn_interval = 0;
@@ -51,6 +53,7 @@ struct Mob {
 		is_active = true;
 		x_pos = distrib(gen);
 		y_pos = 1;
+		prev_y_pos = 1;
 		move_interval = moveInterval(gen);
 		spawn_interval = respawn(gen);
 		elapsed_frame_spawn = 0;
@@ -68,8 +71,8 @@ struct Mob {
 		if (elapsed_frame_move++ < move_interval) {
 			return;
 		}
-		
-		y_pos++;
+
+		prev_y_pos = y_pos++;
 		elapsed_frame_move = 0;
 	}
 
@@ -93,6 +96,7 @@ struct Bullet {
 	bool is_active = false;
 	int x_pos = 0;
 	int y_pos = 0;
+	int prev_y_pos = 0;
 	int move_interval = 5;
 	int elapsed_frame = 0;
 
@@ -102,7 +106,7 @@ struct Bullet {
 		is_active = true;
 
 		x_pos = x;
-		y_pos = y;
+		y_pos = prev_y_pos = y;
 
 		elapsed_frame = 0;
 	}
@@ -118,8 +122,8 @@ struct Bullet {
 		if (elapsed_frame++ < move_interval) {
 			return;
 		}
-		
-		y_pos--;
+
+		prev_y_pos = y_pos--;
 		elapsed_frame = 0;
 	}
 
@@ -141,6 +145,8 @@ GameWorld world;
 Player player;
 Mob mobs[GameWorld::MAX_MOB];
 Bullet bullets[GameWorld::MAX_BULLET];
+CHAR_INFO screenBuffer[GameWorld::SIZE_Y][GameWorld::SIZE_X];
+HANDLE hConsoleOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
 void HideCursor()
 {
@@ -190,13 +196,23 @@ void SpawnBullet() {
 void Collision() {
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
 		for (int j = 0; j < GameWorld::MAX_BULLET; j++) {
-			if (bullets[j].is_active && mobs[i].is_active) {
-				if (bullets[j].x_pos == mobs[i].x_pos && bullets[j].y_pos == mobs[i].y_pos) {
-					mobs[i].Deactivate();
-					bullets[j].Deactivate();
-					player.score++;
-				}
+			if (!bullets[j].is_active || !mobs[i].is_active) {
+				continue;
 			}
+			if (bullets[j].x_pos != mobs[i].x_pos) {
+				continue;
+			}
+
+			int bulletMin = min(bullets[j].y_pos, bullets[j].prev_y_pos);
+			int bulletMax = max(bullets[j].y_pos, bullets[j].prev_y_pos);
+			int mobMin = min(mobs[i].y_pos, mobs[i].prev_y_pos);
+			int mobMax = max(mobs[i].y_pos, mobs[i].prev_y_pos);
+
+			if (bulletMax >= mobMin && mobMax >= bulletMin) {
+                mobs[i].Deactivate();
+                bullets[j].Deactivate();
+                player.score++;
+            }
 		}
 	}
 
@@ -233,31 +249,36 @@ void Input()
 }
 
 void DrawWorld() {
-	MoveCursor(0, 0);
-	for (int y = 0; y < GameWorld::SIZE_Y; y++) {
-		for (int x = 0; x < GameWorld::SIZE_X; x++) {
-			world.text[y][x] = ' ';
-			if ((y == 0 || y == GameWorld::SIZE_Y - 1) || (x == 0 || x == GameWorld::SIZE_X - 1)) {
-				world.text[y][x] = '*';
-			}
-			cout << world.text[y][x];
+	for (int y = 0; y < GameWorld::SIZE_Y; ++y) {
+		for (int x = 0; x < GameWorld::SIZE_X; ++x) {
+			bool isEdge = (y == 0 || y == GameWorld::SIZE_Y - 1 || x == 0 || x == GameWorld::SIZE_X - 1);
+			screenBuffer[y][x].Char.AsciiChar = isEdge ? '*' : ' ';
+			screenBuffer[y][x].Attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
 		}
-		cout << endl;
 	}
-	MoveCursor(player.x_pos, player.y_pos);
-	cout << player.TEXT;
+
+	screenBuffer[player.y_pos][player.x_pos].Char.AsciiChar = Player::TEXT;
+	screenBuffer[player.y_pos][player.x_pos].Attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+
 	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
 		if (bullets[i].is_active) {
-			MoveCursor(bullets[i].x_pos, bullets[i].y_pos);
-			cout << Bullet::TEXT;
+			screenBuffer[bullets[i].y_pos][bullets[i].x_pos].Char.AsciiChar = Bullet::TEXT;
+			screenBuffer[bullets[i].y_pos][bullets[i].x_pos].Attributes = FOREGROUND_GREEN;
 		}
 	}
+
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
 		if (mobs[i].is_active) {
-			MoveCursor(mobs[i].x_pos, mobs[i].y_pos);
-			cout << Mob::TEXT;
+			screenBuffer[mobs[i].y_pos][mobs[i].x_pos].Char.AsciiChar = Mob::TEXT;
+			screenBuffer[mobs[i].y_pos][mobs[i].x_pos].Attributes = FOREGROUND_RED;
 		}
 	}
+
+	COORD bufferSize = { GameWorld::SIZE_X, GameWorld::SIZE_Y };
+	COORD bufferCoord = { 0, 0 };
+	SMALL_RECT writeRegion = { 0, 0, GameWorld::SIZE_X - 1, GameWorld::SIZE_Y - 1 };
+	WriteConsoleOutputA(hConsoleOut, (CHAR_INFO*)screenBuffer, bufferSize, bufferCoord, &writeRegion);
+
 	MoveCursor(0, 21);
 	cout << "Score : " << player.score << endl;
 	cout << "HP : " << player.cur_hp << endl;
@@ -317,6 +338,6 @@ int main()
 		if (EndGame()) {
 			break;
 		}
-		Sleep(5);
+		Sleep(20);
 	}
 }
