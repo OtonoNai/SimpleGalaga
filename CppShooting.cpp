@@ -33,9 +33,11 @@ struct Mob {
 	static constexpr char TEXT = 'X';
 
 	bool is_active = false;
+
 	int x_pos = 0;
 	int y_pos = 0;
 	int prev_y_pos = 0;
+
 	int move_interval = 0;
 	int elapsed_frame_move = 0;
 	int spawn_interval = 0;
@@ -94,9 +96,11 @@ struct Bullet {
 	static constexpr char TEXT = '^';
 
 	bool is_active = false;
+
 	int x_pos = 0;
 	int y_pos = 0;
 	int prev_y_pos = 0;
+
 	int move_interval = 5;
 	int elapsed_frame = 0;
 
@@ -186,10 +190,9 @@ void SpawnBullet() {
 		if (bullets[i].is_active) {
 			continue;
 		}
-		else {
-			bullets[i].Activate(player.x_pos, player.y_pos - 1);
-			return;
-		}
+
+		bullets[i].Activate(player.x_pos, player.y_pos - 1);
+		return;
 	}
 }
 
@@ -213,12 +216,12 @@ void Collision() {
 			int mob_max = max(mobs[i].y_pos, mobs[i].prev_y_pos);
 
 			if (bullet_max >= mob_min && mob_max >= bullet_min) {
-                mobs[i].Deactivate();
-                bullets[j].Deactivate();
-                player.score++;
-            }
+				mobs[i].Deactivate();
+				bullets[j].Deactivate();
+				player.score++;
+			}
 		}
-		
+
 		if (mobs[i].x_pos != player.x_pos) {
 			continue;
 		}
@@ -230,10 +233,6 @@ void Collision() {
 			mobs[i].Deactivate();
 			player.cur_hp--;
 		}
-	}
-
-	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
-		
 	}
 }
 
