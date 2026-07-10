@@ -195,6 +195,10 @@ void SpawnBullet() {
 
 void Collision() {
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		if (!mobs[i].is_active) {
+			continue;
+		}
+
 		for (int j = 0; j < GameWorld::MAX_BULLET; j++) {
 			if (!bullets[j].is_active || !mobs[i].is_active) {
 				continue;
@@ -203,19 +207,34 @@ void Collision() {
 				continue;
 			}
 
-			int bulletMin = min(bullets[j].y_pos, bullets[j].prev_y_pos);
-			int bulletMax = max(bullets[j].y_pos, bullets[j].prev_y_pos);
-			int mobMin = min(mobs[i].y_pos, mobs[i].prev_y_pos);
-			int mobMax = max(mobs[i].y_pos, mobs[i].prev_y_pos);
+			int bullet_min = min(bullets[j].y_pos, bullets[j].prev_y_pos);
+			int bullet_max = max(bullets[j].y_pos, bullets[j].prev_y_pos);
+			int mob_min = min(mobs[i].y_pos, mobs[i].prev_y_pos);
+			int mob_max = max(mobs[i].y_pos, mobs[i].prev_y_pos);
 
-			if (bulletMax >= mobMin && mobMax >= bulletMin) {
+			if (bullet_max >= mob_min && mob_max >= bullet_min) {
                 mobs[i].Deactivate();
                 bullets[j].Deactivate();
                 player.score++;
             }
 		}
+		
+		if (mobs[i].x_pos != player.x_pos) {
+			continue;
+		}
+
+		int mob_min = min(mobs[i].y_pos, mobs[i].prev_y_pos);
+		int mob_max = max(mobs[i].y_pos, mobs[i].prev_y_pos);
+
+		if (mob_min <= player.y_pos && player.y_pos <= mob_max) {
+			mobs[i].Deactivate();
+			player.cur_hp--;
+		}
 	}
 
+	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
+		
+	}
 }
 
 void Input()
