@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="CppShooting.vcxproj" Id="563cc575-4d8d-4b0e-94b3-4e3cbf0f2786" />
+  <Project Path="SimpleGalaga.vcxproj" Id="d1826c5a-1e80-446e-b92d-0208e818f467" />
 </Solution>

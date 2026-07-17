@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{563cc575-4d8d-4b0e-94b3-4e3cbf0f2786}</ProjectGuid>
-    <RootNamespace>CppShooting</RootNamespace>
+    <ProjectGuid>{d1826c5a-1e80-446e-b92d-0208e818f467}</ProjectGuid>
+    <RootNamespace>SimpleGalaga</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -139,7 +139,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CppShooting.cpp" />
+    <ClCompile Include="SimpleGalaga.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

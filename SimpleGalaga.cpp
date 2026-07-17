@@ -18,30 +18,55 @@ struct GameWorld {
 	static constexpr int MAX_BULLET = 3;
 };
 
-struct Player {
+class Player {
+public:
 	static constexpr char TEXT = 'A';
-	static constexpr int Y_POS = GameWorld::SIZE_Y - 2;
-	const int max_hp = 5;
+	static const int max_hp = 5;
+	const int y_pos = GameWorld::SIZE_Y - 2;
 
+	void MoveLeft() {
+		if (x_pos == 1) {
+			return;
+		}
+		--x_pos;
+	}
+
+	void MoveRight() {
+		if (x_pos == GameWorld::SIZE_X - 2) {
+			return;
+		}
+		++x_pos;
+	}
+
+	int GetX() {
+		return x_pos;
+	}
+
+	int GetHp() {
+		return cur_hp;
+	}
+
+	void GetDamaged() {
+		--cur_hp;
+	}
+
+	int GetScore() {
+		return score;
+	}
+
+	void SetScoreUp() {
+		++score;
+	}
+
+private:
 	int cur_hp = max_hp;
 	int score = 0;
 	int x_pos = GameWorld::SIZE_X / 2;
-	int y_pos = GameWorld::SIZE_Y - 2;
 };
 
-struct Mob {
+class Mob {
+public:
 	static constexpr char TEXT = 'X';
-
-	bool is_active = false;
-
-	int x_pos = 0;
-	int y_pos = 0;
-	int prev_y_pos = 0;
-
-	int move_interval = 0;
-	int elapsed_frame_move = 0;
-	int spawn_interval = 0;
-	int elapsed_frame_spawn = 0;
 
 	Mob() {
 		uniform_int_distribution<int> respawn(30, 120);
@@ -78,7 +103,7 @@ struct Mob {
 		elapsed_frame_move = 0;
 	}
 
-	bool CheckOutOfBounds() {
+	bool IsOutOfBounds() {
 		if (!is_active) {
 			return false;
 		}
@@ -86,23 +111,54 @@ struct Mob {
 			Deactivate();
 			return true;
 		}
-		else {
-			return false;
-		}
+
+		return false;
 	}
-};
 
-struct Bullet {
-	static constexpr char TEXT = '^';
+	bool IsActive() {
+		return is_active;
+	}
 
+	int GetSpawnInterval() {
+		return spawn_interval;
+	}
+
+	int GetElapsedFrameSpawn() {
+		return elapsed_frame_spawn;
+	}
+
+	void AddElapsedFrameSpawn() {
+		++elapsed_frame_spawn;
+	}
+
+	int GetX() {
+		return x_pos;
+	}
+
+	int GetY() {
+		return y_pos;
+	}
+
+	int GetPrevY() {
+		return prev_y_pos;
+	}
+
+private:
 	bool is_active = false;
 
 	int x_pos = 0;
 	int y_pos = 0;
 	int prev_y_pos = 0;
 
-	int move_interval = 5;
-	int elapsed_frame = 0;
+	int move_interval = 0;
+	int elapsed_frame_move = 0;
+	int spawn_interval = 0;
+	int elapsed_frame_spawn = 0;
+};
+
+class Bullet {
+public:
+	static constexpr char TEXT = '^';
 
 	Bullet() {}
 
@@ -131,7 +187,7 @@ struct Bullet {
 		elapsed_frame = 0;
 	}
 
-	bool CheckOutOfBounds() {
+	bool IsOutOfBounds() {
 		if (!is_active) {
 			return false;
 		}
@@ -139,10 +195,35 @@ struct Bullet {
 			Deactivate();
 			return true;
 		}
-		else {
-			return false;
-		}
+
+		return false;
 	}
+
+	int GetY() {
+		return y_pos;
+	}
+
+	int GetPrevY() {
+		return prev_y_pos;
+	}
+
+	int GetX() {
+		return x_pos;
+	}
+
+	bool IsActive() {
+		return is_active;
+	}
+
+private:
+	bool is_active = false;
+
+	int x_pos = 0;
+	int y_pos = 0;
+	int prev_y_pos = 0;
+
+	int move_interval = 5;
+	int elapsed_frame = 0;
 };
 
 GameWorld world;
@@ -164,7 +245,7 @@ void HideCursor()
 	);
 }
 
-void MoveCursor(int x, int y)
+void MoveCursor(short x, short y)
 {
 	COORD pos = { x, y };
 	SetConsoleCursorPosition(
@@ -173,12 +254,13 @@ void MoveCursor(int x, int y)
 	);
 }
 
-void GenerateMobs() {
+void SpawnMobs() {
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
-		if (mobs[i].is_active) {
+		if (mobs[i].IsActive()) {
 			continue;
 		}
-		if (mobs[i].elapsed_frame_spawn++ < mobs[i].spawn_interval) {
+		if (mobs[i].GetElapsedFrameSpawn() < mobs[i].GetSpawnInterval()) {
+			mobs[i].AddElapsedFrameSpawn();
 			continue;
 		}
 		mobs[i].Activate();
@@ -187,51 +269,51 @@ void GenerateMobs() {
 
 void SpawnBullet() {
 	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
-		if (bullets[i].is_active) {
+		if (bullets[i].IsActive()) {
 			continue;
 		}
 
-		bullets[i].Activate(player.x_pos, player.y_pos - 1);
+		bullets[i].Activate(player.GetX(), player.y_pos - 1);
 		return;
 	}
 }
 
 void Collision() {
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
-		if (!mobs[i].is_active) {
+		if (!mobs[i].IsActive()) {
 			continue;
 		}
 
 		for (int j = 0; j < GameWorld::MAX_BULLET; j++) {
-			if (!bullets[j].is_active || !mobs[i].is_active) {
+			if (!bullets[j].IsActive() || !mobs[i].IsActive()) {
 				continue;
 			}
-			if (bullets[j].x_pos != mobs[i].x_pos) {
+			if (bullets[j].GetX() != mobs[i].GetX()) {
 				continue;
 			}
 
-			int bullet_min = min(bullets[j].y_pos, bullets[j].prev_y_pos);
-			int bullet_max = max(bullets[j].y_pos, bullets[j].prev_y_pos);
-			int mob_min = min(mobs[i].y_pos, mobs[i].prev_y_pos);
-			int mob_max = max(mobs[i].y_pos, mobs[i].prev_y_pos);
+			int bullet_min = min(bullets[j].GetY(), bullets[j].GetPrevY());
+			int bullet_max = max(bullets[j].GetY(), bullets[j].GetPrevY());
+			int mob_min = min(mobs[i].GetY(), mobs[i].GetPrevY());
+			int mob_max = max(mobs[i].GetY(), mobs[i].GetPrevY());
 
 			if (bullet_max >= mob_min && mob_max >= bullet_min) {
 				mobs[i].Deactivate();
 				bullets[j].Deactivate();
-				player.score++;
+				player.SetScoreUp();
 			}
 		}
 
-		if (mobs[i].x_pos != player.x_pos) {
+		if (mobs[i].GetX() != player.GetX()) {
 			continue;
 		}
 
-		int mob_min = min(mobs[i].y_pos, mobs[i].prev_y_pos);
-		int mob_max = max(mobs[i].y_pos, mobs[i].prev_y_pos);
+		int mob_min = min(mobs[i].GetY(), mobs[i].GetPrevY());
+		int mob_max = max(mobs[i].GetY(), mobs[i].GetPrevY());
 
 		if (mob_min <= player.y_pos && player.y_pos <= mob_max) {
 			mobs[i].Deactivate();
-			player.cur_hp--;
+			player.GetDamaged();
 		}
 	}
 }
@@ -245,19 +327,10 @@ void Input()
 		switch (key)
 		{
 		case 'a':
-			if (player.x_pos == 1) {
-				return;
-			}
-			player.x_pos--;
-
+			player.MoveLeft();
 			break;
-
 		case 'd':
-			if (player.x_pos == GameWorld::SIZE_X - 2) {
-				return;
-			}
-			player.x_pos++;
-
+			player.MoveRight();
 			break;
 		case 'w':
 			SpawnBullet();
@@ -275,20 +348,20 @@ void DrawWorld() {
 		}
 	}
 
-	screenBuffer[player.y_pos][player.x_pos].Char.AsciiChar = Player::TEXT;
-	screenBuffer[player.y_pos][player.x_pos].Attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+	screenBuffer[player.y_pos][player.GetX()].Char.AsciiChar = Player::TEXT;
+	screenBuffer[player.y_pos][player.GetX()].Attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
 
 	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
-		if (bullets[i].is_active) {
-			screenBuffer[bullets[i].y_pos][bullets[i].x_pos].Char.AsciiChar = Bullet::TEXT;
-			screenBuffer[bullets[i].y_pos][bullets[i].x_pos].Attributes = FOREGROUND_GREEN;
+		if (bullets[i].IsActive()) {
+			screenBuffer[bullets[i].GetY()][bullets[i].GetX()].Char.AsciiChar = Bullet::TEXT;
+			screenBuffer[bullets[i].GetY()][bullets[i].GetX()].Attributes = FOREGROUND_GREEN;
 		}
 	}
 
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
-		if (mobs[i].is_active) {
-			screenBuffer[mobs[i].y_pos][mobs[i].x_pos].Char.AsciiChar = Mob::TEXT;
-			screenBuffer[mobs[i].y_pos][mobs[i].x_pos].Attributes = FOREGROUND_RED;
+		if (mobs[i].IsActive()) {
+			screenBuffer[mobs[i].GetY()][mobs[i].GetX()].Char.AsciiChar = Mob::TEXT;
+			screenBuffer[mobs[i].GetY()][mobs[i].GetX()].Attributes = FOREGROUND_RED;
 		}
 	}
 
@@ -298,12 +371,12 @@ void DrawWorld() {
 	WriteConsoleOutputA(hConsoleOut, (CHAR_INFO*)screenBuffer, bufferSize, bufferCoord, &writeRegion);
 
 	MoveCursor(0, 21);
-	cout << "Score : " << player.score << endl;
-	cout << "HP : " << player.cur_hp << endl;
+	cout << "Score : " << player.GetScore() << endl;
+	cout << "HP : " << player.GetHp() << endl;
 }
 
 bool EndGame() {
-	if (player.cur_hp > 0) {
+	if (player.GetHp() > 0) {
 		return false;
 	}
 	MoveCursor(0, 0);
@@ -324,7 +397,7 @@ bool EndGame() {
 }
 
 void Update() {
-	GenerateMobs();
+	SpawnMobs();
 	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
 		bullets[i].Move();
 	}
@@ -335,12 +408,10 @@ void Update() {
 
 void LateUpdate() {
 	for (int i = 0; i < GameWorld::MAX_BULLET; i++) {
-		bullets[i].CheckOutOfBounds();
+		bullets[i].IsOutOfBounds();
 	}
 	for (int i = 0; i < GameWorld::MAX_MOB; i++) {
-		if (mobs[i].CheckOutOfBounds()) {
-			player.cur_hp--;
-		}
+		mobs[i].IsOutOfBounds();
 	}
 }
 
